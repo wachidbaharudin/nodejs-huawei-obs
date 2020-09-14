@@ -1,0 +1,18 @@
+{
+  "name": "sinau-huawei-obs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Wachid Baharudin",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "esdk-obs-nodejs": "^3.20.7",
+    "express": "^4.17.1",
+    "multer": "^1.4.2",
+    "stream-buffers": "^3.0.2"
+  }
+}
