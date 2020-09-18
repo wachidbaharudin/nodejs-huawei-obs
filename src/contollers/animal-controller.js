@@ -1,89 +1,79 @@
 const config = require('../../config')
-const Obs = require('../repos/obs')
 const streamBuffers = require('stream-buffers');
-const fs = require('fs')
 let instance = null
 
 class AnimalController {
-  something = 'aaaaa'
   constructor(animalRepo, obsRepo) {
     this.animalRepo = animalRepo
     this.obsInstance = obsRepo
-
-    console.log('on animal.controller.constructor:', typeof this.obsInstance);
   }
 
-  async add(req, res) {
-    console.log('on controller.upload:', typeof this.obsInstance);
-    console.log('on controller.req.files:', req.files['picture'][0]);
-
-    // Body only available 
-    let myReadableStreamBuffer = new streamBuffers.ReadableStreamBuffer({
-      frequency: 10,      // in milliseconds.
-      chunkSize: 2048     // in bytes.
+  // add for storing animal data
+  async add({ name, file }) {
+    // Body only available on stream.readble or string
+    let bodyReadble = new streamBuffers.ReadableStreamBuffer({
+      frequency: 10,
+      chunkSize: 2048
     });
-    myReadableStreamBuffer.put(req.files['picture'][0].buffer)
+    // convert buffer to readable
+    bodyReadble.put(file.buffer)
+    
+    let key = `${name}-${new Date().getMilliseconds()}-${file.originalname}`
 
-    let keyGenerate = `${new Date().getMilliseconds()}-`
-    await this.obsInstance.putObject({
+    return this.obsInstance.putObject({
       Bucket: config.obs.bucketName,
-      Key: keyGenerate + req.files['picture'][0].originalname,
-      Body: myReadableStreamBuffer,
-      ContentType: req.files['picture'][0].mimetype,
-      ContentLength: req.files['picture'][0].size
+      Key: key,
+      Body: bodyReadble,
+      ContentType: file.mimetype,
+      ContentLength: file.size
     })
-      .then(async result => {
-        console.log('on controller.upload.putOject');
-        return this.animalRepo.store({
-          name: req.body.name,
-          numberOfFeet: req.body.number_of_feet,
-          etag: result.etag
+      .then(async response => { 
+        console.log('putObject.response:', response);
+        return this.animalRepo.store({ name, key, etag: response.etag, contentType: file.mimetype })
+          .then(result => { 
+            return (result ? { status: 'Ok' } : { status: 'Error', message: 'Insert failed'}) 
+          })
+       })
+      .catch(err => { throw err })
+  }
+
+  // get for get file by id
+  async getImage({ id }) {
+    return this.animalRepo.getOne({ id })
+      .then(resultDb => {
+        return this.obsInstance.getObject({
+          Bucket: config.obs.bucketName,
+          Key: resultDb.key,
         })
-      })
-      .then(response => {
-        console.log('on controller.upload.store');
-        res.json(response)
-      })
-      .catch(err => {
-        console.log('on controller.err:', err.message);
-        res.status(400).json({ message: err.message })
+          .then(async resultApi => {       
+            return { content: resultApi.content, contentType: resultDb.contentType }
+          })
+          .catch(err => { throw err })
+
       })
   }
 
-  async get(req, res) {
-    await this.obsInstance.getObject({
-      Bucket: config.obs.bucketName,
-      Key: '777-Screenshot from 2020-09-14 15-13-57.png',
-      // ResponseContentType: 'image/png'
-      // SaveAsStream
-    })
+  async getAnimals() {
+    return this.animalRepo.getAll()
       .then(async result => {
-        let data = []
-        result.content.on('data', (chunk) => {
-          data.push(chunk)
-          console.log('on data', chunk);
-        })
-
-        result.content.on('end', () => {
-          let string = Buffer.concat(data)
-          res.writeHead(200, { 'Content-Type': 'image/png' });
-          res.end(string, 'binary')
-        })
+        return (result.length ? { status: 'Ok', result } : { status: 'Ok', message: 'Data empty'}) 
       })
-      .catch(err => {
-        console.log('on controller.get.err:', err.message);
-        res.status(400).json({ message: err.message })
-      })
+      .catch(err => { throw err })
   }
+
+  async delete({ id }) {
+    return this.animalRepo.deleteOne({ id })
+      .then(result => {
+        return (result ? { status: 'Ok' } : { status: 'Error', message: 'Delete failed'}) 
+      })
+      .catch(err => { throw err })
+  }
+
 }
 
 class SingletonAnimalController {
   static getInstance(animalServiceInstance, obsRepoInstance) {
-    if (!instance) {
-      instance = new AnimalController(animalServiceInstance, obsRepoInstance)
-    }
-
-    return instance
+    return !instance ? instance = new AnimalController(animalServiceInstance, obsRepoInstance) : instance
   }
 }
 

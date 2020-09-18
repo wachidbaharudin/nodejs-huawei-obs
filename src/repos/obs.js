@@ -10,21 +10,16 @@ class ObsRepo {
       secret_access_key: config.obs.secretAccessKey,
       server: config.obs.server
     })
-
-    console.log('on obsRepo.constructor:', typeof this.obsClient);
   }
 
   async putObject({ Bucket, Key, Body, ContentType, ContentLength }) {
-    console.log('on obsrepo.putObject:', { Bucket, Key, Body, ContentType, ContentLength });
-
     return this.obsClient.putObject({ Bucket, Key, Body, ContentType, ContentLength })
       .then(result => {
-        console.log('on obsRepo.putObject.result:', result);
+        console.log('putObject.response.status:', result.CommonMsg.Status)
+        
         if (result.CommonMsg.Status < 300) {
-          console.log('on obsRepo.putObject.<300');
           return {
             etag: result.InterfaceResult.ETag,
-            // versionId: result.InterfaceResult.VersionId,
             message: result.CommonMsg.Message
           }
         }
@@ -78,8 +73,6 @@ class SingeltonObs {
     if (!instance) {
       instance = new ObsRepo()
     }
-
-    console.log('on repo.obs.SingeltonObs.instance:', typeof instance);
 
     return instance
   }
