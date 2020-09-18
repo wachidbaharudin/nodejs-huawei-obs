@@ -1,4 +1,4 @@
-# Huawe OBS implementation using Node.js and MongoDB
+# Huawei OBS implementation using Node.js and MongoDB
 
 Install dependencies
 > npm i
